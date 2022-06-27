@@ -1,5 +1,8 @@
 package com.dji.simulatorDemo;
 
+import static android.location.LocationManager.GPS_PROVIDER;
+import static android.location.LocationManager.NETWORK_PROVIDER;
+import static com.dji.simulatorDemo.GuidanceService.MY_PREFS_NAME;
 import static java.lang.Math.atan2;
 import static java.lang.Math.cos;
 import static java.lang.Math.sin;
@@ -10,10 +13,13 @@ import android.app.AlertDialog;
 import android.app.DialogFragment;
 import android.app.FragmentTransaction;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Point;
 import android.graphics.SurfaceTexture;
@@ -22,6 +28,7 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.AsyncTask;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
 import android.os.Build;
 import android.os.Bundle;
@@ -155,7 +162,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
     private SendVirtualStickDataTask mSendVirtualStickDataTask;
 
     private GPSData.GPSLocation rcLocation;
-    private LocationCoordinate3D droneLocation = null, prevDroneLocation = new LocationCoordinate3D(0,0,0);
+    private LocationCoordinate3D droneLocation = null, prevDroneLocation = new LocationCoordinate3D(0, 0, 0);
     private int gpsCount = 0;
     private GPSSignalLevel gpsSignalLevel = null;
 
@@ -182,10 +189,140 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
     private float mYaw;
     private float mThrottle;
 
-    private LocationManager locationManager;
+    //private LocationManager locationManager;
     private Marker rcMarker = null;
 
     private CompassState mCompassState = null;
+    //===========================================================
+    Intent iGPSService;
+    public static final String EXTRA_LOCATION = "EXTRA_LOCATION";
+    boolean mBounded;
+    GuidanceService mService;
+    LocationManager mLocationManager = null;
+    int LOCATION_INTERVAL = 0;
+    float LOCATION_DISTANCE = 0;
+
+    private final BroadcastReceiver LocationUpdateReceiver = new BroadcastReceiver() {
+
+        /**
+         * Receives broadcast from GPS class/service.
+         */
+        @Override
+        public void onReceive(Context context, Intent intent) {
+
+            Bundle extras = intent.getExtras();
+            //Bundle extras = intent.getBundleExtra("com.passgen.tobyatherton.pointtest.ACTION_RECEIVE_LOCATION");
+
+            Location location = (Location) extras.get(MainActivity.EXTRA_LOCATION);
+
+            rcLocation = new GPSData.GPSLocation(location.getLatitude(), location.getLongitude());
+            if (mTextView2 != null && rcLocation != null) {
+                mTextView2.setText("Controller gps data: set");
+
+                MarkerOptions markerOptions = new MarkerOptions();
+                markerOptions.position(new LatLng(location.getLatitude(), location.getLongitude()));
+                markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
+                if (rcMarker != null) {
+                    rcMarker.remove();
+                }
+                rcMarker = gMap.addMarker(markerOptions);
+            }
+        }
+    };
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Intent mIntent = new Intent(this, GuidanceService.class);
+        bindService(mIntent, mConnection, BIND_AUTO_CREATE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+            //if(mBounded) {
+                mService.createNotification(); //TEST
+            //}
+        }
+    }
+
+    ServiceConnection mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            //Toast.makeText(MapsActivity.this, "Service is disconnected", Toast.LENGTH_LONG).show();
+            mBounded = false;
+            mService = null;
+            //mService.stopService(iGPSService);
+        }
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            //Toast.makeText(MapsActivity.this, "Service is connected", Toast.LENGTH_LONG).show();
+            GuidanceService.LocalBinder bindService = (GuidanceService.LocalBinder) service;
+            mService = bindService.getService();
+            mService.setMapsContext(MainActivity.this);
+            mBounded = true;
+
+            //test
+            iGPSService = new Intent(MainActivity.this, GuidanceService.class);
+            //startService(iGPSService);
+            mService.startService(iGPSService);
+            //test
+            mLocationManager = mService.getmLocationManager();
+            LOCATION_INTERVAL = mService.getLOCATION_INTERVAL();
+            LOCATION_DISTANCE = mService.getLOCATION_DISTANCE();
+
+            //use this to get location?
+            SharedPreferences prefs = getSharedPreferences(MY_PREFS_NAME, MODE_PRIVATE);
+            String spGPSLocation = prefs.getString("gpsLocation", "");
+            if (!spGPSLocation.equalsIgnoreCase("")) {
+                //mLastLocation = prefs.getAll("gpsLocation", "")//spGPSLocation;  /* Edit the value here*/
+            }
+
+
+            try {
+
+                if (Build.VERSION.SDK_INT >= 23 && mService != null) {
+                    if (!checkIfAlreadyhavePermission()) {
+                        requestForSpecificPermission();
+                    } else {
+                        mLocationManager.requestLocationUpdates(NETWORK_PROVIDER, LOCATION_INTERVAL, LOCATION_DISTANCE, mService);
+                    }
+                } else if (mService != null) {
+                    mLocationManager.requestLocationUpdates(
+                            NETWORK_PROVIDER, LOCATION_INTERVAL, LOCATION_DISTANCE,
+                            mService);
+                }
+
+            } catch (SecurityException ex) {
+                Log.i(TAG, "fail to request location update, ignore", ex);
+            } catch (IllegalArgumentException ex) {
+                Log.d(TAG, "network provider does not exist, " + ex.getMessage());
+            }
+
+            try {
+
+                //do all this in mapsactivity
+                if (Build.VERSION.SDK_INT >= 23 && mService != null) {
+                    if (!checkIfAlreadyhavePermission()) {
+                        requestForSpecificPermission();
+                    } else {
+                        mLocationManager.requestLocationUpdates(
+                                GPS_PROVIDER, LOCATION_INTERVAL, LOCATION_DISTANCE,
+                                mService);
+                    }
+                } else if (mService != null) {
+                    mLocationManager.requestLocationUpdates(
+                            GPS_PROVIDER, LOCATION_INTERVAL, LOCATION_DISTANCE,
+                            mService);
+                }
+
+            } catch (SecurityException ex) {
+                Log.i(TAG, "fail to request location update, ignore", ex);
+            } catch (IllegalArgumentException ex) {
+                Log.d(TAG, "gps provider does not exist " + ex.getMessage());
+            }
+            //end test
+
+        }
+    };
+    //===========================================================
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -211,51 +348,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
             getWindow().getDecorView().setSystemUiVisibility(UI_OPTIONS);
         }
 
-        //Get phone location
-        locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return;
-        }
-        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000, 1, new android.location.LocationListener() {
-            @Override
-            public void onLocationChanged(Location location) {
-                //Removed for testing put back in
-                rcLocation = new GPSData.GPSLocation(location.getLatitude(),location.getLongitude());
-                if(mTextView2 != null && rcLocation != null) {
-                    mTextView2.setText("Controller gps data: set");
-
-                    MarkerOptions markerOptions = new MarkerOptions();
-                    markerOptions.position(new LatLng(location.getLatitude(),location.getLongitude()));
-                    markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
-                    if(rcMarker != null) {
-                        rcMarker.remove();
-                    }
-                    rcMarker = gMap.addMarker(markerOptions);
-                }
-            }
-
-            @Override
-            public void onStatusChanged(String provider, int status, Bundle extras) {
-
-            }
-
-            @Override
-            public void onProviderEnabled(String provider) {
-
-            }
-
-            @Override
-            public void onProviderDisabled(String provider) {
-
-            }
-        });
 
         LinearLayout camLayout = findViewById(R.id.camLayout);
         camLayout.setOnClickListener(new View.OnClickListener() {
@@ -265,7 +357,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                 //int res=(Integer) v.getTag();
                 //ViewGroup.LayoutParams params = mapFragment.getView().getLayoutParams();
                 //showToast("Width: " + camLayout.getLayoutParams().width + "Height: " + camLayout.getLayoutParams().height + "x: ");
-                if(!isCamDialogMaxSize) {
+                if (!isCamDialogMaxSize) {
                     /*RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(camLayout.getLayoutParams());
                     lp.width = 450;
                     lp.height = 300;
@@ -348,24 +440,50 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
         }
     }
 
+    public class NotificationReceiver extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // TODO Auto-generated method stub
+            String action = intent.getAction();
+            if (GuidanceService.PAUSE_ACTION.equals(action)) {
+                Toast.makeText(context, "PAUSE CALLED", Toast.LENGTH_SHORT).show();
+            } else if (GuidanceService.START_ACTION.equals(action)) {
+                Toast.makeText(context, "START CALLED", Toast.LENGTH_SHORT).show();
+            } else if (GuidanceService.STOP_ACTION.equals(action)) {
+                Toast.makeText(context, "STOP CALLED", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    public void requestForSpecificPermission() {
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}, 123);
+    }
+
+    public boolean checkIfAlreadyhavePermission() {
+        int resultAFL = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION);
+        int resultACL = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION);
+        return resultAFL == PackageManager.PERMISSION_GRANTED && resultACL == PackageManager.PERMISSION_GRANTED;
+    }
+
     private void isLocationEnabled() {
 
-        if(!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)){
-            AlertDialog.Builder alertDialog=new AlertDialog.Builder(this);
+        if (!mLocationManager.isProviderEnabled(GPS_PROVIDER)) {
+            AlertDialog.Builder alertDialog = new AlertDialog.Builder(this);
             alertDialog.setTitle("Enable Location");
             alertDialog.setMessage("Your locations setting is not enabled. Please enabled it in settings menu.");
-            alertDialog.setPositiveButton("Location Settings", new DialogInterface.OnClickListener(){
-                public void onClick(DialogInterface dialog, int which){
-                    Intent intent=new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+            alertDialog.setPositiveButton("Location Settings", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+                    Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
                     startActivity(intent);
                 }
             });
-            alertDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener(){
-                public void onClick(DialogInterface dialog, int which){
+            alertDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
                     dialog.cancel();
                 }
             });
-            AlertDialog alert=alertDialog.create();
+            AlertDialog alert = alertDialog.create();
             alert.show();
         }
         /*else{
@@ -431,7 +549,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
             AsyncTask.execute(new Runnable() {
                 @Override
                 public void run() {
-                    showToast( "registering, pls wait...");
+                    showToast("registering, pls wait...");
                     DJISDKManager.getInstance().registerApp(getApplicationContext(), new DJISDKManager.SDKManagerCallback() {
                         @Override
                         public void onRegister(DJIError djiError) {
@@ -440,7 +558,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                                 DJISDKManager.getInstance().startConnectionToProduct();
                                 showToast("Register Success");
                             } else {
-                                showToast( "Register sdk fails, check network is available");
+                                showToast("Register sdk fails, check network is available");
                             }
                             Log.v(TAG, djiError.getDescription());
                         }
@@ -451,6 +569,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                             showToast("Product Disconnected");
 
                         }
+
                         @Override
                         public void onProductConnect(BaseProduct baseProduct) {
                             Log.d(TAG, String.format("onProductConnect newProduct:%s", baseProduct));
@@ -483,6 +602,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                                             newComponent));
 
                         }
+
                         @Override
                         public void onInitProcess(DJISDKInitEvent djisdkInitEvent, int i) {
 
@@ -516,7 +636,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
 
     private void uninitPreviewer() {
         Camera camera = DJISimulatorApplication.getCameraInstance();
-        if (camera != null){
+        if (camera != null) {
             // Reset the callback
             VideoFeeder.getInstance().getPrimaryVideoFeed().addVideoDataListener(null);
         }
@@ -544,7 +664,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
 
     @Override
     public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-        Log.e(TAG,"onSurfaceTextureDestroyed");
+        Log.e(TAG, "onSurfaceTextureDestroyed");
         if (mCodecManager != null) {
             mCodecManager.cleanSurface();
             mCodecManager = null;
@@ -565,7 +685,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
     @Override
     public void onMapClick(@NonNull LatLng point) {
         //SET THIS UP TO WORK WITHOUT USING WAYPOINT API
-        if (isAdd == true){
+        if (isAdd == true) {
             markWaypoint(point);
 /*            Waypoint mWaypoint = new Waypoint(point.latitude, point.longitude, altitude);
             //Add Waypoints to Waypoint arraylist;
@@ -578,7 +698,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                 waypointList.add(mWaypoint);
                 waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
             }*/
-        }else{
+        } else {
             setResultToToast("Cannot Add Waypoint");
         }
     }
@@ -592,7 +712,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                 * cos(deg2rad(theta));
         dist = Math.acos(dist);
         dist = dist * 180.0 / Math.PI;
-        dist = dist * 60 * 1.1515*1000;
+        dist = dist * 60 * 1.1515 * 1000;
         return (dist);
     }
 
@@ -608,11 +728,11 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
         mYaw = 0;
         mThrottle = 0;
         //end remove
-        if(prevDroneLocation != null && droneLocation != null && !prevDroneLocation.equals(droneLocation) && isFollowing) {
+        if (prevDroneLocation != null && droneLocation != null && !prevDroneLocation.equals(droneLocation) && isFollowing) {
             showToast("Follow mode engaged");
             //do logic
             //while drone greater than 2 metres from controller
-            while(distanceBetween(droneLocation.getLatitude(), droneLocation.getLongitude(), rcLocation.getLatitude(), rcLocation.getLongitude()) > 2 && isFollowing) {
+            while (distanceBetween(droneLocation.getLatitude(), droneLocation.getLongitude(), rcLocation.getLatitude(), rcLocation.getLongitude()) > 2 && isFollowing) {
                 mYaw = (float) getBearing(droneLocation.getLatitude(), droneLocation.getLongitude(), rcLocation.getLatitude(), rcLocation.getLongitude());
 
                 if (mFlightController != null) {
@@ -652,14 +772,14 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
         mYaw = 0;
         mThrottle = 0;
         //end remove
-        if(droneLocation != null && isOnMission) {
+        if (droneLocation != null && isOnMission) {
             showToast("Mission mode engaged");
             //do logic
             //while drone greater than 5 metres from controller
 
             Iterator it = mMarkers.entrySet().iterator();
             while (it.hasNext() && isOnMission) {
-                Map.Entry<Integer, Marker> pair = (Map.Entry<Integer, Marker>)it.next();
+                Map.Entry<Integer, Marker> pair = (Map.Entry<Integer, Marker>) it.next();
                 Marker m = pair.getValue();
 
                 while (distanceBetween(droneLocation.getLatitude(), droneLocation.getLongitude(), m.getPosition().latitude, m.getPosition().longitude) > 5 && isOnMission) {
@@ -693,14 +813,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
         mThrottle = 0;
     }
 
-    public static void wait(int ms)
-    {
-        try
-        {
+    public static void wait(int ms) {
+        try {
             Thread.sleep(ms);
-        }
-        catch(InterruptedException ex)
-        {
+        } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         }
     }
@@ -710,8 +826,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
     }
 
     // Update the drone location based on states from MCU.
-    private void updateDroneLocation(){
-        if(droneLocation != null) {
+    private void updateDroneLocation() {
+        if (droneLocation != null) {
             LatLng pos = new LatLng(droneLocation.getLatitude(), droneLocation.getLongitude());
             //Create MarkerOptions object
             final MarkerOptions markerOptions = new MarkerOptions();
@@ -727,7 +843,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
 
                     if (gMap != null && markerOptions != null && checkGpsCoordination(droneLocation.getLatitude(), droneLocation.getLongitude())) {
                         droneMarker = gMap.addMarker(markerOptions);
-                        if(mFlightController != null && !mFlightController.getCompass().isCalibrating() && !mFlightController.getCompass().hasError()) {
+                        if (mFlightController != null && !mFlightController.getCompass().isCalibrating() && !mFlightController.getCompass().hasError()) {
         /*                    if(mFlightController.getCompass().getCalibrationState() != CompassCalibrationState.NOT_CALIBRATING || mFlightController.getCompass().getCalibrationState() != CompassCalibrationState.SUCCESSFUL) {
                                 mFlightController.getCompass().startCalibration();
                             }*/
@@ -739,7 +855,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
         }
     }
 
-    private void markWaypoint(LatLng point){
+    private void markWaypoint(LatLng point) {
         //Create MarkerOptions object
         MarkerOptions markerOptions = new MarkerOptions();
         markerOptions.position(point);
@@ -778,35 +894,35 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
     }
 
     private void updateTitleBar() {
-        if(mConnectStatusTextView == null) return;
+        if (mConnectStatusTextView == null) return;
         boolean ret = false;
         BaseProduct product = DJISimulatorApplication.getProductInstance();
         if (product != null) {
-            if(product.isConnected()) {
+            if (product.isConnected()) {
                 //The product is connected
                 mConnectStatusTextView.setText(DJISimulatorApplication.getProductInstance().getModel() + " Connected");
                 ret = true;
             } else {
-                if(product instanceof Aircraft) {
-                    Aircraft aircraft = (Aircraft)product;
-                    if(aircraft.getRemoteController() != null && aircraft.getRemoteController().isConnected()) {
+                if (product instanceof Aircraft) {
+                    Aircraft aircraft = (Aircraft) product;
+                    if (aircraft.getRemoteController() != null && aircraft.getRemoteController().isConnected()) {
                         // The product is not connected, but the remote controller is connected
                         mConnectStatusTextView.setText("only RC Connected");
                         ret = true;
                     }
                 }
             }
-            if(mTextView != null && droneLocation != null && droneLocation.getLatitude() != 0 && droneLocation.getLongitude() != 0)
+            if (mTextView != null && droneLocation != null && droneLocation.getLatitude() != 0 && droneLocation.getLongitude() != 0)
                 mTextView.setText("Aircraft gps set");
-            if(mTextView2 != null && rcLocation != null)
+            if (mTextView2 != null && rcLocation != null)
                 mTextView2.setText("Controller gps set");
-            if(mGPSSignalLevel != null && gpsSignalLevel != null)
+            if (mGPSSignalLevel != null && gpsSignalLevel != null)
                 mGPSSignalLevel.setText("Signal Level: " + String.valueOf(gpsSignalLevel.value()));
-            if(mGPSCount != null)
+            if (mGPSCount != null)
                 mGPSCount.setText("Satellites connected: " + Integer.toString(gpsCount));
         }
 
-        if(!ret) {
+        if (!ret) {
             // The product or the remote controller are not connected.
             mConnectStatusTextView.setText("Disconnected");
         }
@@ -821,6 +937,25 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
         loginAccount();
         initPreviewer();
         isLocationEnabled();
+
+        if (mLocationManager != null) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+                return;
+            }
+            mLocationManager.requestLocationUpdates(
+                    NETWORK_PROVIDER, LOCATION_INTERVAL, LOCATION_DISTANCE,
+                    mService);
+
+            mLocationManager.requestLocationUpdates(GPS_PROVIDER, LOCATION_INTERVAL, LOCATION_DISTANCE,
+                    mService);
+        }
     }
 
     @Override
@@ -834,6 +969,15 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
     public void onStop() {
         Log.e(TAG, "onStop");
         super.onStop();
+        if (mBounded) {
+            unbindService(mConnection);
+            mBounded = false;
+            //try to run this?
+            //mService.performOnBackgroundThread();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                mService.closeNotification();
+            }
+        }
     }
 
     public void onReturn(View view){
@@ -854,6 +998,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
         }
         uninitPreviewer();
         super.onDestroy();
+        unregisterReceiver(LocationUpdateReceiver);
+        if(mService != null) {
+            mService.stopService(iGPSService);
+        }
     }
 
     private void loginAccount(){
