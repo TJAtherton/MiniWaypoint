@@ -39,6 +39,7 @@
             are connected to the Internet before
             the app is launched
         -->
+
         <meta-data
             android:name="com.dji.sdk.API_KEY"
             android:value="" />

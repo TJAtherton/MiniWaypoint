@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/DJISimulatorDemo.iml" filepath="$PROJECT_DIR$/.idea/modules/DJISimulatorDemo.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/DJISimulatorDemo.app.iml" filepath="$PROJECT_DIR$/.idea/modules/app/DJISimulatorDemo.app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/MiniWaypoint.iml" filepath="$PROJECT_DIR$/.idea/modules/MiniWaypoint.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/MiniWaypoint.app.iml" filepath="$PROJECT_DIR$/.idea/modules/app/MiniWaypoint.app.iml" />
     </modules>
   </component>
 </project>
