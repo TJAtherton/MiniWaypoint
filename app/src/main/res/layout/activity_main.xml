@@ -1,0 +1,222 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.dji.simulatorDemo.MainActivity">
+
+    <fragment
+        android:id="@+id/map"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        class="com.google.android.gms.maps.SupportMapFragment" />
+
+    <!-- create a Linear Layout with horizontal orientation and weightSum property -->
+
+    <LinearLayout
+        android:id="@+id/firstLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="1"
+        android:background="#FFF">
+
+        <TextView
+            android:id="@+id/ConnectStatusTextView"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="GSDemo"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:gravity="center"
+            android:layout_weight=".16"
+            />
+
+        <TextView
+            android:id="@+id/textview_simulator"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_centerHorizontal="true"
+            android:text="No aircraft gps"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:gravity="center"
+            android:layout_weight=".16"/>
+
+        <TextView
+            android:id="@+id/textview_simulator2"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_centerHorizontal="true"
+            android:text="No controller gps"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:gravity="center"
+            android:layout_weight=".16"/>
+
+        <TextView
+            android:id="@+id/textview_gpscount"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_centerHorizontal="true"
+            android:text="No gps count"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:gravity="center"
+            android:layout_weight=".16"/>
+
+        <TextView
+            android:id="@+id/textview_gpssignallevel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_centerHorizontal="true"
+            android:text="No gps level"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:gravity="center"
+            android:layout_weight=".16"/>
+
+        <TextView
+            android:id="@+id/textview_compass"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_centerHorizontal="true"
+            android:text="No compass"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:gravity="center"
+            android:layout_weight=".16"/>
+    </LinearLayout>
+
+    <!-- create a Linear Layout with horizontal orientation and weightSum property -->
+
+    <LinearLayout
+        android:id="@+id/secondLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/firstLayout"
+        android:orientation="horizontal"
+        android:weightSum="1"
+        android:background="#FFF">
+
+        <Button
+            android:id="@+id/toggleCam"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Toggle Cam"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:layout_weight=".25"/>
+        <Button
+            android:id="@+id/locate"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Locate"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:layout_weight=".25"/>
+        <Button
+            android:id="@+id/add"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Add"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:layout_weight=".25"/>
+        <Button
+            android:id="@+id/clear"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Clear"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:layout_weight=".25"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/thirdLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/secondLayout"
+        android:orientation="horizontal"
+        android:weightSum="1"
+        android:background="#FFF">
+
+        <Button
+            android:id="@+id/config"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Config"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:layout_weight=".20"/>
+        <Button
+            android:id="@+id/btn_enable_virtual_stick"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Start follow"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:layout_weight=".20"/>
+        <Button
+            android:id="@+id/btn_start_mission"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Start Mission"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:layout_weight=".20"/>
+        <Button
+            android:id="@+id/btn_take_off"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Take off"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:layout_weight=".20"/>
+        <Button
+            android:id="@+id/btn_land"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Land"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:layout_weight=".20"/>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/camLayout"
+        android:layout_width="150dp"
+        android:layout_height="100dp"
+        android:layout_alignBottom="@+id/map"
+        android:orientation="horizontal"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentBottom="true"
+        android:layout_centerVertical="true"
+        android:weightSum="1"
+        android:background="@drawable/customborder">
+
+        <TextureView
+            android:id="@+id/video_previewer_surface"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:layout_centerHorizontal="true"/>
+
+        <!--
+                <TextView
+                    android:id="@+id/timer"
+                    android:layout_width="150dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:layout_marginTop="23dp"
+                    android:gravity="center"
+                    android:textColor="#ffffff"
+                    android:layout_alignTop="@+id/video_previewer_surface"
+                    android:layout_centerHorizontal="true" />-->
+    </LinearLayout>
+
+
+
+</RelativeLayout>

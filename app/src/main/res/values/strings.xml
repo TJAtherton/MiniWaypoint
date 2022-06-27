@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">DJISimulatorDemo</string>
+    <string name="view_virtual_stick">VirtualStickView</string>
+    <string name="sdk_registration_message">SDK Registration Failed. Please check the bundle ID and your network connectivity</string>
+    <string name="success">Success</string>
+    <string name="product_information">Product Information</string>
+    <string name="sdk_version">DJI SDK Version: %1$s</string>
+    <string name="connection_loose">Status: No Product Connected</string>
+</resources>
