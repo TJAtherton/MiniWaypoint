@@ -112,6 +112,8 @@ import dji.sdk.sdkmanager.DJISDKManager;
 import dji.sdk.useraccount.UserAccountManager;
 
 import android.view.TextureView.SurfaceTextureListener;
+import static com.dji.simulatorDemo.GuidanceService.MY_PREFS_NAME;
+import static com.dji.simulatorDemo.GuidanceService.MY_DRONE_PREFS_NAME;
 
 public class MainActivity extends AppCompatActivity implements SurfaceTextureListener, View.OnClickListener, GoogleMap.OnMapClickListener, OnMapReadyCallback, Thread.UncaughtExceptionHandler {
 
@@ -136,7 +138,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
     private AtomicBoolean isRegistrationInProgress = new AtomicBoolean(false);
     private static final int REQUEST_PERMISSION_CODE = 12345;
 
-    private FlightController mFlightController;
+    //private FlightController mFlightController;
     protected TextView mConnectStatusTextView;
 
     protected VideoFeeder.VideoDataListener mReceivedVideoDataListener = null;
@@ -196,6 +198,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
     //===========================================================
     Intent iGPSService;
     public static final String EXTRA_LOCATION = "EXTRA_LOCATION";
+    //public static final String EXTRA_FLIGHT_CONTROLLER = "EXTRA_FLIGHT_CONTROLLER";
+    public static final String EXTRA_DRONE_LOCATION = "EXTRA_DRONE_LOCATION";
+    public static final String EXTRA_GPS_COUNT = "EXTRA_GPS_COUNT";
+    public static final String EXTRA_GPS_SIGNAL_LEVEL = "EXTRA_GPS_SIGNAL_LEVEL";
     boolean mBounded;
     GuidanceService mService;
     LocationManager mLocationManager = null;
@@ -213,19 +219,66 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
             Bundle extras = intent.getExtras();
             //Bundle extras = intent.getBundleExtra("com.passgen.tobyatherton.pointtest.ACTION_RECEIVE_LOCATION");
 
-            Location location = (Location) extras.get(MainActivity.EXTRA_LOCATION);
+            //THIS MAY BE AN ISSUE GIVEN HOW FAST THE DRONE AND THE PHONE UPDATES
+            if(intent.getAction().equals("com.dji.simulatorDemo.ACTION_RECEIVE_LOCATION"))  {
+                //GET THE CONTROLLER LOCATION.
+                Location location = (Location) extras.get(MainActivity.EXTRA_LOCATION);
 
-            rcLocation = new GPSData.GPSLocation(location.getLatitude(), location.getLongitude());
-            if (mTextView2 != null && rcLocation != null) {
-                mTextView2.setText("Controller gps data: set");
+                rcLocation = new GPSData.GPSLocation(location.getLatitude(), location.getLongitude());
+                if (mTextView2 != null && rcLocation != null) {
+                    mTextView2.setText("Controller gps data: set");
 
-                MarkerOptions markerOptions = new MarkerOptions();
-                markerOptions.position(new LatLng(location.getLatitude(), location.getLongitude()));
-                markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
-                if (rcMarker != null) {
-                    rcMarker.remove();
+                    MarkerOptions markerOptions = new MarkerOptions();
+                    markerOptions.position(new LatLng(location.getLatitude(), location.getLongitude()));
+                    markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
+                    if (rcMarker != null) {
+                        rcMarker.remove();
+                    }
+                    rcMarker = gMap.addMarker(markerOptions);
                 }
-                rcMarker = gMap.addMarker(markerOptions);
+            } else if (intent.getAction().equals("com.dji.simulatorDemo.ACTION_RECEIVE_DRONE_LOCATION")) {
+                //GET THE DRONE LOCATION
+                droneLocation = (LocationCoordinate3D) getIntent().getExtras().getSerializable(MainActivity.EXTRA_DRONE_LOCATION);
+                gpsSignalLevel = (GPSSignalLevel) extras.get(MainActivity.EXTRA_GPS_SIGNAL_LEVEL);
+                gpsCount = (int) extras.get(MainActivity.EXTRA_GPS_COUNT);
+
+                //TEST
+                //Update map to drones location
+                if(droneLocationUpdateCounter == 10) {
+                    updateDroneLocation();
+                    runOnUiThread(new Runnable() {
+                        public void run() {
+                            if(gMap != null) {
+                                //Map doing something weird like going blank at runtime
+                                mapCameraUpdate();
+                            }// Locate the drone's place
+                        }
+                    });
+                    droneLocationUpdateCounter = 0;
+                } else {
+                    droneLocationUpdateCounter += 1;
+                }
+
+                //TESTING
+                if(rcLocation != null && droneLocation != null) {
+                    Location rcLoc = new Location("");
+                    Location droneLoc = new Location("");
+                    rcLoc.setLatitude(rcLocation.getLatitude());
+                    rcLoc.setLongitude(rcLocation.getLongitude());
+
+                    droneLoc.setLatitude(droneLocation.getLatitude());
+                    droneLoc.setLongitude(droneLocation.getLongitude());
+                    //droneLoc.bearingTo(rcLoc);
+                    float bearingTest =  getBearing(rcLocation.getLatitude(),rcLocation.getLongitude(),droneLocation.getLatitude(),droneLocation.getLongitude());
+
+                    if(!Float.isNaN(bearingTest)) {
+                        runOnUiThread(new Runnable() {
+                            public void run() {
+                                mConnectStatusTextView.setText("Bearing is: " + bearingTest);
+                            }
+                        });
+                    }
+                }
             }
         }
     };
@@ -332,7 +385,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
 
         initUI();
         //TEST
-        initFlightController();
+        if(mService != null) {
+            mService.initFlightController();
+        }
+        //initFlightController();
 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -440,6 +496,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
         }
     }
 
+    //USE THIS TO GET EVENTS FROM THE BUTTONS ON THE NOTIFICATION FROM THE SERVICE
     public class NotificationReceiver extends BroadcastReceiver {
 
         @Override
@@ -735,8 +792,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
             while (distanceBetween(droneLocation.getLatitude(), droneLocation.getLongitude(), rcLocation.getLatitude(), rcLocation.getLongitude()) > 2 && isFollowing) {
                 mYaw = (float) getBearing(droneLocation.getLatitude(), droneLocation.getLongitude(), rcLocation.getLatitude(), rcLocation.getLongitude());
 
-                if (mFlightController != null) {
-                    mFlightController.sendVirtualStickFlightControlData(
+                if (mService != null && mService.mFlightController != null) {
+                    mService.mFlightController.sendVirtualStickFlightControlData(
                             new FlightControlData(
                                     mPitch, mRoll, mYaw, mThrottle
                             ), djiError -> {
@@ -785,8 +842,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                 while (distanceBetween(droneLocation.getLatitude(), droneLocation.getLongitude(), m.getPosition().latitude, m.getPosition().longitude) > 5 && isOnMission) {
                     mYaw = getBearing(droneLocation.getLatitude(), droneLocation.getLongitude(), m.getPosition().latitude, m.getPosition().longitude);
 
-                    if (mFlightController != null) {
-                        mFlightController.sendVirtualStickFlightControlData(
+                    if (mService != null && mService.mFlightController != null) {
+                        mService.mFlightController.sendVirtualStickFlightControlData(
                                 new FlightControlData(
                                         mPitch, mRoll, mYaw, mThrottle
                                 ), djiError -> {
@@ -843,11 +900,11 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
 
                     if (gMap != null && markerOptions != null && checkGpsCoordination(droneLocation.getLatitude(), droneLocation.getLongitude())) {
                         droneMarker = gMap.addMarker(markerOptions);
-                        if (mFlightController != null && !mFlightController.getCompass().isCalibrating() && !mFlightController.getCompass().hasError()) {
+                        if (mService != null && mService.mFlightController != null && !mService.mFlightController.getCompass().isCalibrating() && !mService.mFlightController.getCompass().hasError()) {
         /*                    if(mFlightController.getCompass().getCalibrationState() != CompassCalibrationState.NOT_CALIBRATING || mFlightController.getCompass().getCalibrationState() != CompassCalibrationState.SUCCESSFUL) {
                                 mFlightController.getCompass().startCalibration();
                             }*/
-                            droneMarker.setRotation(mFlightController.getCompass().getHeading()); //mYaw Set the image rotation to the yaw of the aircraft
+                            droneMarker.setRotation(mService.mFlightController.getCompass().getHeading()); //mYaw Set the image rotation to the yaw of the aircraft
                         }
                     }
                 }
@@ -933,7 +990,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
         Log.e(TAG, "onResume");
         super.onResume();
         updateTitleBar();
-        initFlightController();
+        //TEST
+        if(mService != null) {
+            mService.initFlightController();
+        }
         loginAccount();
         initPreviewer();
         isLocationEnabled();
@@ -1025,7 +1085,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                 });
     }
 
-    private void initFlightController() {
+    //EXTRACT LOGIC FROM HERE AND DO IN SERVICE BROADCASTER
+
+    /*private void initFlightController() {
 
         Aircraft aircraft = DJISimulatorApplication.getAircraftInstance();
         if (aircraft == null || !aircraft.isConnected()) {
@@ -1038,7 +1100,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
             mFlightController.setYawControlMode(YawControlMode.ANGULAR_VELOCITY);
             mFlightController.setVerticalControlMode(VerticalControlMode.VELOCITY);
             mFlightController.setRollPitchCoordinateSystem(FlightCoordinateSystem.BODY);
-            /*mFlightController.getSimulator().setStateCallback(new SimulatorState.Callback() {
+            *//*mFlightController.getSimulator().setStateCallback(new SimulatorState.Callback() {
                 @Override
                 public void onUpdate(final SimulatorState stateData) {
                     new Handler(Looper.getMainLooper()).post(new Runnable() {
@@ -1058,7 +1120,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                         }
                     });
                 }
-            });*/
+            });*//*
             // GET RC GPS position
             aircraft.getRemoteController().setGPSDataCallback(new GPSData.Callback() {
                 @Override
@@ -1070,7 +1132,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
             });
 
             if (mFlightController != null) {
-/*                mFlightController.setStateCallback(
+*//*                mFlightController.setStateCallback(
                         djiFlightControllerCurrentState -> {
                             droneLocation.setLatitude(djiFlightControllerCurrentState.getAircraftLocation().getLatitude());
                             droneLocation.setLongitude(djiFlightControllerCurrentState.getAircraftLocation().getLongitude());
@@ -1084,7 +1146,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                                 double bearingTest = this.getBearing(rcLocation.getLatitude(),rcLocation.getLongitude(),droneLocation.getLatitude(),droneLocation.getLongitude());
                                 mConnectStatusTextView.setText("Bearing is: " + bearingTest);
                             }
-                        });*/
+                        });*//*
                 mFlightController.setStateCallback(new FlightControllerState.Callback() {
                     @Override
                     public void onUpdate(FlightControllerState state) {
@@ -1139,7 +1201,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                     }
                 });
 
-               /* mFlightController.getCompass().setCompassStateCallback(new CompassState.Callback() {
+               *//* mFlightController.getCompass().setCompassStateCallback(new CompassState.Callback() {
                     @Override
                     public void onUpdate(@NonNull CompassState compassState) {
                         mCompassState = compassState;
@@ -1154,10 +1216,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                             });
                         }
                     }
-                });*/
+                });*//*
             }
         }
-    }
+    }*/
 
 /*    private double getBearing(double startLat, double startLng, double endLat, double endLng){
         double latitude1 = Math.toRadians(startLat);
@@ -1311,9 +1373,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                                         isFollowing = true;
                                         mBtnEnableVirtualStick.setText("Stop Following");
                                         //Enabled virtual simulator
-                                        if (mFlightController != null) {
+                                        if (mService != null && mService.mFlightController != null) {
 
-                                            mFlightController.setVirtualStickModeEnabled(true, new CommonCallbacks.CompletionCallback() {
+                                            mService.mFlightController.setVirtualStickModeEnabled(true, new CommonCallbacks.CompletionCallback() {
                                                 @Override
                                                 public void onResult(DJIError djiError) {
                                                     if (djiError != null) {
@@ -1339,8 +1401,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                     //Call Stop following code here
 
                     //Disable virtual simulator
-                    if (mFlightController != null){
-                        mFlightController.setVirtualStickModeEnabled(false, new CommonCallbacks.CompletionCallback() {
+                    if (mService != null && mService.mFlightController != null){
+                        mService.mFlightController.setVirtualStickModeEnabled(false, new CommonCallbacks.CompletionCallback() {
                             @Override
                             public void onResult(DJIError djiError) {
                                 if (djiError != null) {
@@ -1371,8 +1433,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                 break;*/
 
             case R.id.btn_take_off:
-                if (mFlightController != null){
-                    mFlightController.startTakeoff(
+                if (mService != null && mService.mFlightController != null){
+                    mService.mFlightController.startTakeoff(
                             new CommonCallbacks.CompletionCallback() {
                                 @Override
                                 public void onResult(DJIError djiError) {
@@ -1389,9 +1451,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                 break;
 
             case R.id.btn_land:
-                if (mFlightController != null){
+                if (mService != null && mService.mFlightController != null){
 
-                    mFlightController.startLanding(
+                    mService.mFlightController.startLanding(
                             djiError -> {
                                 if (djiError != null) {
                                     showToast(djiError.getDescription());
@@ -1419,9 +1481,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
 
                                     public void onClick(DialogInterface dialog, int whichButton) {
                                         //Enabled virtual simulator
-                                        if (mFlightController != null) {
+                                        if (mService != null && mService.mFlightController != null) {
 
-                                            mFlightController.setVirtualStickModeEnabled(true, new CommonCallbacks.CompletionCallback() {
+                                            mService.mFlightController.setVirtualStickModeEnabled(true, new CommonCallbacks.CompletionCallback() {
                                                 @Override
                                                 public void onResult(DJIError djiError) {
                                                     if (djiError != null) {
@@ -1450,8 +1512,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
                 }else{
 
                     //Disable virtual simulator
-                    if (mFlightController != null){
-                        mFlightController.setVirtualStickModeEnabled(false, new CommonCallbacks.CompletionCallback() {
+                    if (mService != null && mService.mFlightController != null){
+                        mService.mFlightController.setVirtualStickModeEnabled(false, new CommonCallbacks.CompletionCallback() {
                             @Override
                             public void onResult(DJIError djiError) {
                                 if (djiError != null) {
@@ -1644,8 +1706,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
         @Override
         public void run() {
 
-            if (mFlightController != null) {
-                mFlightController.sendVirtualStickFlightControlData(
+            if (mService != null && mService.mFlightController != null) {
+                mService.mFlightController.sendVirtualStickFlightControlData(
                         new FlightControlData(
                                 mPitch, mRoll, mYaw, mThrottle
                         ), djiError -> {

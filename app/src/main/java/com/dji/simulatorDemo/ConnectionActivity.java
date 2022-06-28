@@ -1,12 +1,18 @@
 package com.dji.simulatorDemo;
 
+import static android.location.LocationManager.NETWORK_PROVIDER;
+
+import android.Manifest;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -50,6 +56,20 @@ public class ConnectionActivity extends Activity implements View.OnClickListener
                     , 1);
         }
 
+        try {
+
+            if (Build.VERSION.SDK_INT >= 23) {
+                if (!checkIfAlreadyhavePermission()) {
+                    requestForSpecificPermission();
+                }
+            }
+
+        } catch (SecurityException ex) {
+            Log.i(TAG, "fail to request location update, ignore", ex);
+        } catch (IllegalArgumentException ex) {
+            Log.d(TAG, "network provider does not exist, " + ex.getMessage());
+        }
+
         setContentView(R.layout.activity_connection);
 
         initUI();
@@ -63,6 +83,16 @@ public class ConnectionActivity extends Activity implements View.OnClickListener
     public void onReturn(View view){
         Log.e(TAG, "onReturn");
         this.finish();
+    }
+
+    public void requestForSpecificPermission() {
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}, 123);
+    }
+
+    public boolean checkIfAlreadyhavePermission() {
+        int resultAFL = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION);
+        int resultACL = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION);
+        return resultAFL == PackageManager.PERMISSION_GRANTED && resultACL == PackageManager.PERMISSION_GRANTED;
     }
 
     private void initUI() {

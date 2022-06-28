@@ -22,8 +22,24 @@ import com.google.android.gms.maps.model.LatLng;
 import static android.location.LocationManager.GPS_PROVIDER;
 import static android.location.LocationManager.NETWORK_PROVIDER;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
+
+import java.io.Serializable;
+
+import dji.common.flightcontroller.FlightControllerState;
+import dji.common.flightcontroller.GPSSignalLevel;
+import dji.common.flightcontroller.LocationCoordinate3D;
+import dji.common.flightcontroller.virtualstick.FlightCoordinateSystem;
+import dji.common.flightcontroller.virtualstick.RollPitchControlMode;
+import dji.common.flightcontroller.virtualstick.VerticalControlMode;
+import dji.common.flightcontroller.virtualstick.YawControlMode;
+import dji.common.remotecontroller.GPSData;
+import dji.sdk.products.Aircraft;
+import dji.sdk.flightcontroller.FlightController;
+
+//ADD DRONE LOCATION UPDATES TO THIS SERVICE MAYBE
 
 //http://stackoverflow.com/questions/28535703/best-way-to-get-user-gps-location-in-background-in-android
 public class GuidanceService extends Service implements android.location.LocationListener {
@@ -49,6 +65,7 @@ public class GuidanceService extends Service implements android.location.Locatio
 
     private boolean isGPSGood;
     public static final String MY_PREFS_NAME = "gpsPrefs";
+    public static final String MY_DRONE_PREFS_NAME = "gpsDronePrefs";
 
     protected Handler handler;
 
@@ -57,13 +74,16 @@ public class GuidanceService extends Service implements android.location.Locatio
     private final int NOTIFICATIONID = 10;
     private String strGPSStatus = "";
 
-
+    public FlightController mFlightController;
+    private LocationCoordinate3D droneLocation = null, prevDroneLocation = new LocationCoordinate3D(0, 0, 0);
+    private int gpsCount = 0;
+    private GPSSignalLevel gpsSignalLevel = null;
 
     //perhaps use access methods
     public static final String PAUSE_ACTION = "com.dji.simulatorDemo.PAUSE_ACTION";
     public static final String STOP_ACTION = "com.dji.simulatorDemo.STOP_ACTION";
     public static final String START_ACTION = "com.dji.simulatorDemo.START_ACTION";
-
+    private Context context;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -82,6 +102,7 @@ public class GuidanceService extends Service implements android.location.Locatio
         Log.e(TAG, "onCreate");
 
         initializeLocationManager();
+        initFlightController();
     }
 
     @Override
@@ -104,6 +125,7 @@ public class GuidanceService extends Service implements android.location.Locatio
                 }
                 mLocationManager.requestLocationUpdates(NETWORK_PROVIDER, LOCATION_INTERVAL, LOCATION_DISTANCE, GuidanceService.this);
                 mLocationManager.requestLocationUpdates(GPS_PROVIDER, LOCATION_INTERVAL, LOCATION_DISTANCE, GuidanceService.this);
+                initFlightController();
                 //END TEST
 // write your code to post content on server
             }
@@ -134,6 +156,76 @@ public class GuidanceService extends Service implements android.location.Locatio
                 Log.i(TAG, "fail to remove location listners, ignore", ex);
             }
             //}
+        }
+    }
+
+    public void initFlightController() {
+
+        context = this;
+        Aircraft aircraft = DJISimulatorApplication.getAircraftInstance();
+        if (aircraft == null || !aircraft.isConnected()) {
+            mFlightController = null;
+            return;
+        } else {
+            mFlightController = aircraft.getFlightController();
+            mFlightController.setRollPitchControlMode(RollPitchControlMode.VELOCITY);
+            mFlightController.setYawControlMode(YawControlMode.ANGULAR_VELOCITY);
+            mFlightController.setVerticalControlMode(VerticalControlMode.VELOCITY);
+            mFlightController.setRollPitchCoordinateSystem(FlightCoordinateSystem.BODY);
+
+            if (mFlightController != null) {
+
+                mFlightController.setStateCallback(new FlightControllerState.Callback() {
+                    @Override
+                    public void onUpdate(FlightControllerState state) {
+                        if(droneLocation == null) {
+                            droneLocation = new LocationCoordinate3D(state.getAircraftLocation().getLatitude(),state.getAircraftLocation().getLongitude(),state.getAircraftLocation().getAltitude());
+                        }
+                        else {
+                            droneLocation.setLatitude(state.getAircraftLocation().getLatitude());
+                            droneLocation.setLongitude(state.getAircraftLocation().getLongitude());
+                            droneLocation.setAltitude(state.getAircraftLocation().getAltitude());
+                        }
+                        gpsCount = state.getSatelliteCount();
+                        gpsSignalLevel = state.getGPSSignalLevel();
+
+
+                        SharedPreferences.Editor editor = getSharedPreferences(MY_DRONE_PREFS_NAME, MODE_PRIVATE).edit();
+                        editor.putString("gpsDroneLatitude", ""+droneLocation.getLatitude());
+                        editor.putString("gpsDroneLongitude", ""+droneLocation.getLongitude());
+                        editor.putString("gpsDroneLocation", ""+droneLocation);
+                        editor.apply();
+
+
+                        Intent toBroadcast = new Intent("com.dji.simulatorDemo.ACTION_RECEIVE_DRONE_LOCATION");
+                        //toBroadcast.putExtra(MainActivity.EXTRA_FLIGHT_CONTROLLER, (Serializable) mFlightController);
+                        toBroadcast.putExtra(MainActivity.EXTRA_DRONE_LOCATION, (Serializable) droneLocation);
+                        toBroadcast.putExtra(MainActivity.EXTRA_GPS_COUNT,gpsCount);
+                        toBroadcast.putExtra(MainActivity.EXTRA_GPS_SIGNAL_LEVEL,gpsSignalLevel);
+                        context.sendBroadcast(toBroadcast);
+
+                        Log.e(TAG, "onDroneLocationChanged: " + droneLocation);
+
+                    }
+                });
+
+               /* mFlightController.getCompass().setCompassStateCallback(new CompassState.Callback() {
+                    @Override
+                    public void onUpdate(@NonNull CompassState compassState) {
+                        mCompassState = compassState;
+                        if (mCompass != null && mCompassState != null) {
+                            runOnUiThread(new Runnable() {
+                                public void run() {
+                                    if(mCompassState != null && mCompassState.getSensorState() != null) {
+                                        String s = mCompassState.getSensorState().name();
+                                        //mCompass.setText(mCompassState.getSensorState().name());
+                                    }
+                                }
+                            });
+                        }
+                    }
+                });*/
+            }
         }
     }
 
