@@ -8,10 +8,8 @@ import static java.lang.Math.cos;
 import static java.lang.Math.sin;
 
 import android.Manifest;
-import android.app.Activity;
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
-import android.app.DialogFragment;
-import android.app.FragmentTransaction;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -21,35 +19,23 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.graphics.Point;
 import android.graphics.SurfaceTexture;
 import android.location.Location;
-import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.AsyncTask;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
-import android.view.Display;
-import android.view.Gravity;
-import android.view.LayoutInflater;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
-import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.RadioGroup;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.ToggleButton;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -77,23 +63,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import dji.common.camera.SystemState;
 import dji.common.error.DJISDKError;
-import dji.common.flightcontroller.CompassCalibrationState;
 import dji.common.flightcontroller.CompassState;
-import dji.common.flightcontroller.FlightControllerState;
 import dji.common.flightcontroller.GPSSignalLevel;
 import dji.common.flightcontroller.LocationCoordinate3D;
-import dji.common.flightcontroller.simulator.InitializationData;
-import dji.common.flightcontroller.simulator.SimulatorState;
 import dji.common.flightcontroller.virtualstick.FlightControlData;
-import dji.common.flightcontroller.virtualstick.FlightCoordinateSystem;
-import dji.common.flightcontroller.virtualstick.RollPitchControlMode;
-import dji.common.flightcontroller.virtualstick.VerticalControlMode;
-import dji.common.flightcontroller.virtualstick.YawControlMode;
-import dji.common.mission.waypoint.Waypoint;
-import dji.common.mission.waypoint.WaypointMission;
-import dji.common.mission.waypoint.WaypointMissionFinishedAction;
-import dji.common.mission.waypoint.WaypointMissionHeadingMode;
-import dji.common.model.LocationCoordinate2D;
 import dji.common.product.Model;
 import dji.common.remotecontroller.GPSData;
 import dji.common.useraccount.UserAccountState;
@@ -104,7 +77,6 @@ import dji.sdk.base.BaseProduct;
 import dji.sdk.camera.Camera;
 import dji.sdk.camera.VideoFeeder;
 import dji.sdk.codec.DJICodecManager;
-import dji.sdk.flightcontroller.FlightController;
 import dji.sdk.products.Aircraft;
 import dji.common.error.DJIError;
 import dji.sdk.sdkmanager.DJISDKInitEvent;
@@ -115,6 +87,7 @@ import android.view.TextureView.SurfaceTextureListener;
 import static com.dji.simulatorDemo.GuidanceService.MY_PREFS_NAME;
 import static com.dji.simulatorDemo.GuidanceService.MY_DRONE_PREFS_NAME;
 
+@SuppressLint("NewApi")
 public class MainActivity extends AppCompatActivity implements SurfaceTextureListener, View.OnClickListener, GoogleMap.OnMapClickListener, OnMapReadyCallback, Thread.UncaughtExceptionHandler {
 
     private static final String TAG = MainActivity.class.getName();
@@ -603,75 +576,77 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
 
     private void startSDKRegistration() {
         if (isRegistrationInProgress.compareAndSet(false, true)) {
-            AsyncTask.execute(new Runnable() {
-                @Override
-                public void run() {
-                    showToast("registering, pls wait...");
-                    DJISDKManager.getInstance().registerApp(getApplicationContext(), new DJISDKManager.SDKManagerCallback() {
-                        @Override
-                        public void onRegister(DJIError djiError) {
-                            if (djiError == DJISDKError.REGISTRATION_SUCCESS) {
-                                DJILog.e("App registration", DJISDKError.REGISTRATION_SUCCESS.getDescription());
-                                DJISDKManager.getInstance().startConnectionToProduct();
-                                showToast("Register Success");
-                            } else {
-                                showToast("Register sdk fails, check network is available");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                AsyncTask.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        showToast("registering, pls wait...");
+                        DJISDKManager.getInstance().registerApp(getApplicationContext(), new DJISDKManager.SDKManagerCallback() {
+                            @Override
+                            public void onRegister(DJIError djiError) {
+                                if (djiError == DJISDKError.REGISTRATION_SUCCESS) {
+                                    DJILog.e("App registration", DJISDKError.REGISTRATION_SUCCESS.getDescription());
+                                    DJISDKManager.getInstance().startConnectionToProduct();
+                                    showToast("Register Success");
+                                } else {
+                                    showToast("Register sdk fails, check network is available");
+                                }
+                                Log.v(TAG, djiError.getDescription());
                             }
-                            Log.v(TAG, djiError.getDescription());
-                        }
 
-                        @Override
-                        public void onProductDisconnect() {
-                            Log.d(TAG, "onProductDisconnect");
-                            showToast("Product Disconnected");
+                            @Override
+                            public void onProductDisconnect() {
+                                Log.d(TAG, "onProductDisconnect");
+                                showToast("Product Disconnected");
 
-                        }
-
-                        @Override
-                        public void onProductConnect(BaseProduct baseProduct) {
-                            Log.d(TAG, String.format("onProductConnect newProduct:%s", baseProduct));
-                            showToast("Product Connected");
-
-                        }
-
-                        @Override
-                        public void onProductChanged(BaseProduct baseProduct) {
-
-                        }
-
-                        @Override
-                        public void onComponentChange(BaseProduct.ComponentKey componentKey, BaseComponent oldComponent,
-                                                      BaseComponent newComponent) {
-
-                            if (newComponent != null) {
-                                newComponent.setComponentListener(new BaseComponent.ComponentListener() {
-
-                                    @Override
-                                    public void onConnectivityChange(boolean isConnected) {
-                                        Log.d(TAG, "onComponentConnectivityChanged: " + isConnected);
-                                    }
-                                });
                             }
-                            Log.d(TAG,
-                                    String.format("onComponentChange key:%s, oldComponent:%s, newComponent:%s",
-                                            componentKey,
-                                            oldComponent,
-                                            newComponent));
 
-                        }
+                            @Override
+                            public void onProductConnect(BaseProduct baseProduct) {
+                                Log.d(TAG, String.format("onProductConnect newProduct:%s", baseProduct));
+                                showToast("Product Connected");
 
-                        @Override
-                        public void onInitProcess(DJISDKInitEvent djisdkInitEvent, int i) {
+                            }
 
-                        }
+                            @Override
+                            public void onProductChanged(BaseProduct baseProduct) {
 
-                        @Override
-                        public void onDatabaseDownloadProgress(long l, long l1) {
+                            }
 
-                        }
-                    });
-                }
-            });
+                            @Override
+                            public void onComponentChange(BaseProduct.ComponentKey componentKey, BaseComponent oldComponent,
+                                                          BaseComponent newComponent) {
+
+                                if (newComponent != null) {
+                                    newComponent.setComponentListener(new BaseComponent.ComponentListener() {
+
+                                        @Override
+                                        public void onConnectivityChange(boolean isConnected) {
+                                            Log.d(TAG, "onComponentConnectivityChanged: " + isConnected);
+                                        }
+                                    });
+                                }
+                                Log.d(TAG,
+                                        String.format("onComponentChange key:%s, oldComponent:%s, newComponent:%s",
+                                                componentKey,
+                                                oldComponent,
+                                                newComponent));
+
+                            }
+
+                            @Override
+                            public void onInitProcess(DJISDKInitEvent djisdkInitEvent, int i) {
+
+                            }
+
+                            @Override
+                            public void onDatabaseDownloadProgress(long l, long l1) {
+
+                            }
+                        });
+                    }
+                });
+            }
         }
     }
 
@@ -683,7 +658,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
             showToast("Disconnected");
         } else {
             if (null != mVideoSurface) {
-                mVideoSurface.setSurfaceTextureListener(this);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+                    mVideoSurface.setSurfaceTextureListener(this);
+                }
             }
             if (!product.getModel().equals(Model.UNKNOWN_AIRCRAFT)) {
                 VideoFeeder.getInstance().getPrimaryVideoFeed().addVideoDataListener(mReceivedVideoDataListener);
@@ -1282,9 +1259,11 @@ public class MainActivity extends AppCompatActivity implements SurfaceTextureLis
         mBtnTakeOff.setOnClickListener(this);
         mBtnLand.setOnClickListener(this);
 
-        mVideoSurface = (TextureView)findViewById(R.id.video_previewer_surface);
-        if (null != mVideoSurface) {
-            mVideoSurface.setSurfaceTextureListener(this);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+            mVideoSurface = (TextureView) findViewById(R.id.video_previewer_surface);
+            if (null != mVideoSurface) {
+                mVideoSurface.setSurfaceTextureListener(this);
+            }
         }
 
 /*        mScreenJoystickRight.setJoystickListener(new OnScreenJoystickListener(){

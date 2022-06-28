@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="Gradle: com.dji:utmiss:1.2.1@aar">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/transforms-3/6156e7ef701fa980d854c1ddd6e323c5/transformed/jetified-utmiss-1.2.1/jars/classes.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-3/6156e7ef701fa980d854c1ddd6e323c5/transformed/jetified-utmiss-1.2.1/res" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-3/6156e7ef701fa980d854c1ddd6e323c5/transformed/jetified-utmiss-1.2.1/AndroidManifest.xml" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

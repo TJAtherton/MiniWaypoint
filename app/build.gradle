@@ -6,11 +6,10 @@ repositories {
 
 android {
     compileSdkVersion 30
-    buildToolsVersion '30.0.2'
     useLibrary 'org.apache.http.legacy'
 
     defaultConfig {
-        minSdkVersion 19
+        minSdkVersion 21
         targetSdkVersion 30
         multiDexEnabled true
         ndk {
@@ -64,18 +63,19 @@ android {
 dependencies {
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'com.squareup:otto:1.3.8'
-    implementation('com.dji:dji-sdk:4.15', {
+    implementation('com.dji:dji-sdk:4.16.1', {
         /**
          * Uncomment the "library-anti-distortion" if your app does not need Anti Distortion for Mavic 2 Pro and Mavic 2 Zoom.
          * Uncomment the "fly-safe-database" if you need database for release, or we will download it when DJISDKManager.getInstance().registerApp
          * is called.
          * Both will greatly reducing the size of the APK.
+         * Was 'com.dji:dji-sdk:4.15'
          */
         exclude module: 'library-anti-distortion'
         //exclude module: 'fly-safe-database'
     })
     implementation 'com.google.android.gms:play-services-maps:17.0.1'
-    compileOnly 'com.dji:dji-sdk-provided:4.15'
+    compileOnly 'com.dji:dji-sdk-provided:4.16.1'
 
     implementation 'androidx.appcompat:appcompat:1.2.0'
     implementation 'androidx.core:core:1.3.2'

@@ -194,7 +194,9 @@ public class GuidanceService extends Service implements android.location.Locatio
                         editor.putString("gpsDroneLatitude", ""+droneLocation.getLatitude());
                         editor.putString("gpsDroneLongitude", ""+droneLocation.getLongitude());
                         editor.putString("gpsDroneLocation", ""+droneLocation);
-                        editor.apply();
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
+                            editor.apply();
+                        }
 
 
                         Intent toBroadcast = new Intent("com.dji.simulatorDemo.ACTION_RECEIVE_DRONE_LOCATION");
@@ -311,7 +313,9 @@ public class GuidanceService extends Service implements android.location.Locatio
         editor.putString("gpsLatitude", ""+latitude);
         editor.putString("gpsLongitude", ""+longitude);
         editor.putString("gpsLocation", ""+location);
-        editor.apply();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
+            editor.apply();
+        }
 
 
         Intent toBroadcast = new Intent("com.dji.simulatorDemo.ACTION_RECEIVE_LOCATION");
