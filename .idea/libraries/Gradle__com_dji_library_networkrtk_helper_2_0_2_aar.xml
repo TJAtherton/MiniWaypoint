@@ -5,6 +5,10 @@
       <root url="file://$USER_HOME$/.gradle/caches/transforms-3/7b446e73637b1c49fd71cdf139729ae5/transformed/jetified-library-networkrtk-helper-2.0.2/AndroidManifest.xml" />
       <root url="jar://$USER_HOME$/.gradle/caches/transforms-3/7b446e73637b1c49fd71cdf139729ae5/transformed/jetified-library-networkrtk-helper-2.0.2/jars/classes.jar!/" />
       <root url="jar://$USER_HOME$/.gradle/caches/transforms-3/7b446e73637b1c49fd71cdf139729ae5/transformed/jetified-library-networkrtk-helper-2.0.2/jars/libs/wz-rtcm-2.0.2-release.jar!/" />
+      <root url="jar://$USER_HOME$/.gradle/caches/transforms-3/72f9f1aaea84bd99705dec607213811a/transformed/jetified-library-networkrtk-helper-2.0.2/jars/classes.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-3/72f9f1aaea84bd99705dec607213811a/transformed/jetified-library-networkrtk-helper-2.0.2/AndroidManifest.xml" />
+      <root url="jar://$USER_HOME$/.gradle/caches/transforms-3/72f9f1aaea84bd99705dec607213811a/transformed/jetified-library-networkrtk-helper-2.0.2/jars/libs/wz-rtcm-2.0.2-release.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-3/72f9f1aaea84bd99705dec607213811a/transformed/jetified-library-networkrtk-helper-2.0.2/res" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />

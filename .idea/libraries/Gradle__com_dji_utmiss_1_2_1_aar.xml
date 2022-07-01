@@ -4,6 +4,9 @@
       <root url="jar://$USER_HOME$/.gradle/caches/transforms-3/6156e7ef701fa980d854c1ddd6e323c5/transformed/jetified-utmiss-1.2.1/jars/classes.jar!/" />
       <root url="file://$USER_HOME$/.gradle/caches/transforms-3/6156e7ef701fa980d854c1ddd6e323c5/transformed/jetified-utmiss-1.2.1/res" />
       <root url="file://$USER_HOME$/.gradle/caches/transforms-3/6156e7ef701fa980d854c1ddd6e323c5/transformed/jetified-utmiss-1.2.1/AndroidManifest.xml" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-3/e85473353a4d45d46c3a8a7edc5c42cd/transformed/jetified-utmiss-1.2.1/res" />
+      <root url="jar://$USER_HOME$/.gradle/caches/transforms-3/e85473353a4d45d46c3a8a7edc5c42cd/transformed/jetified-utmiss-1.2.1/jars/classes.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-3/e85473353a4d45d46c3a8a7edc5c42cd/transformed/jetified-utmiss-1.2.1/AndroidManifest.xml" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />
